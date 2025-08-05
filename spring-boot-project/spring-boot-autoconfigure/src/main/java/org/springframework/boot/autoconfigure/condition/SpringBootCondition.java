@@ -18,7 +18,6 @@ package org.springframework.boot.autoconfigure.condition;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.type.AnnotatedTypeMetadata;
@@ -40,23 +39,35 @@ public abstract class SpringBootCondition implements Condition {
 
 	private final Log logger = LogFactory.getLog(getClass());
 
+	/**
+	 * 主要是记录子类condition 的匹配结果
+	 *
+	 * @param context  the condition context
+	 * @param metadata the metadata of the {@link org.springframework.core.type.AnnotationMetadata class}
+	 *                 or {@link org.springframework.core.type.MethodMetadata method} being checked
+	 * @return
+	 */
 	@Override
 	public final boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
 		String classOrMethodName = getClassOrMethodName(metadata);
 		try {
+			// 判断每个配置类的每个条件注解@ConditionalOnXXX是否满足条件，然后记录到ConditionOutcome结果中
+			// 注意getMatchOutcome是一个抽象模板方法，交给OnXXXCondition子类去实现
 			ConditionOutcome outcome = getMatchOutcome(context, metadata);
+			// 打印condition评估的日志，哪些条件注解@ConditionalOnXXX是满足条件的，哪些是不满足条件的，这些日志都打印出来
 			logOutcome(classOrMethodName, outcome);
+			// 除了打印日志外，是否匹配的信息还要记录到ConditionEvaluationReport中
+			//这里值得借鉴，记录匹配结果，用于后续问题排查，并增强可观测性
 			recordEvaluation(context, classOrMethodName, outcome);
 			return outcome.isMatch();
-		}
-		catch (NoClassDefFoundError ex) {
-			throw new IllegalStateException("Could not evaluate condition on " + classOrMethodName + " due to "
-					+ ex.getMessage() + " not found. Make sure your own configuration does not rely on "
-					+ "that class. This can also happen if you are "
-					+ "@ComponentScanning a springframework package (e.g. if you "
-					+ "put a @ComponentScan in the default package by mistake)", ex);
-		}
-		catch (RuntimeException ex) {
+		} catch (NoClassDefFoundError ex) {
+			throw new IllegalStateException(
+					"Could not evaluate condition on " + classOrMethodName + " due to " + ex.getMessage() +
+					" not found. Make sure your own configuration does not rely on " +
+					"that class. This can also happen if you are " +
+					"@ComponentScanning a springframework package (e.g. if you " +
+					"put a @ComponentScan in the default package by mistake)", ex);
+		} catch (RuntimeException ex) {
 			throw new IllegalStateException("Error processing condition on " + getName(metadata), ex);
 		}
 	}
@@ -103,14 +114,15 @@ public abstract class SpringBootCondition implements Condition {
 
 	private void recordEvaluation(ConditionContext context, String classOrMethodName, ConditionOutcome outcome) {
 		if (context.getBeanFactory() != null) {
-			ConditionEvaluationReport.get(context.getBeanFactory()).recordConditionEvaluation(classOrMethodName, this,
-					outcome);
+			ConditionEvaluationReport.get(context.getBeanFactory())
+					.recordConditionEvaluation(classOrMethodName, this, outcome);
 		}
 	}
 
 	/**
 	 * Determine the outcome of the match along with suitable log output.
-	 * @param context the condition context
+	 *
+	 * @param context  the condition context
 	 * @param metadata the annotation metadata
 	 * @return the condition outcome
 	 */
@@ -118,8 +130,9 @@ public abstract class SpringBootCondition implements Condition {
 
 	/**
 	 * Return true if any of the specified conditions match.
-	 * @param context the context
-	 * @param metadata the annotation meta-data
+	 *
+	 * @param context    the context
+	 * @param metadata   the annotation meta-data
 	 * @param conditions conditions to test
 	 * @return {@code true} if any condition matches.
 	 */
@@ -135,8 +148,9 @@ public abstract class SpringBootCondition implements Condition {
 
 	/**
 	 * Return true if any of the specified condition matches.
-	 * @param context the context
-	 * @param metadata the annotation meta-data
+	 *
+	 * @param context   the context
+	 * @param metadata  the annotation meta-data
 	 * @param condition condition to test
 	 * @return {@code true} if the condition matches.
 	 */
